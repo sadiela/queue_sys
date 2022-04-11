@@ -19,3 +19,4 @@ vine==5.0.0
 wcwidth==0.2.5
 Werkzeug==2.0.2
 wrapt==1.13.3
+SpeechRecognition==3.8.1

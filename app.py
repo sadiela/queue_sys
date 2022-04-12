@@ -7,6 +7,7 @@ import time
 from os import listdir
 from os.path import isfile, join
 from celery.result import AsyncResult
+from pathlib import Path
 
 # EVENTUALLY HOOK UP TO DB!
 app = Flask(__name__)
@@ -16,6 +17,23 @@ app.config['MAX_CONTENT_PATH'] = 160000
 text_results = ["SPEECH!"]
 
 celery = get_celery_app_instance(app)
+
+def get_free_filename(stub, directory, suffix='.txt'):
+    counter = 0
+    while True:
+        file_candidate = '{}/{}-{}{}'.format(str(directory), stub, counter, suffix)
+        if Path(file_candidate).exists():
+            print("file exists")
+            counter += 1
+        else:  # No match found
+            print("no file")
+            if suffix=='.p':
+                print("will create pickle file")
+            elif suffix:
+                Path(file_candidate).touch()
+            else:
+                Path(file_candidate).mkdir()
+            return file_candidate
 
 
 @app.route("/")
@@ -38,7 +56,7 @@ def uploader():
       print("FILE TO SEND:", f.filename)
       task = speech_rec_with_celery.delay('./uploads/' +  f.filename)
       return jsonify({"task_id": task.id}), 202
-   return f"Long running task triggered with Celery! Check terminal to see the logs..."
+   return f"Long running task failed to trigger! Check terminal to see the logs..."
 
 @app.route("/tasks", methods=["GET"])
 def get_status():
@@ -57,8 +75,13 @@ def get_status():
 # celery tasks
 @celery.task(name='speech_rec')
 def speech_rec_with_celery(filename):
-    print("Executing Long running task : Sending email with celery...", filename)
+    print("Executing Long running task ", filename)
     textres = speechrec(filename)
+    print("FILE NAME", filename)
+    print(filename)
+    new_filename = get_free_filename('speechrec', './results/', suffix='.txt')
+    with open(new_filename, 'wt') as f: 
+        f.write(textres)
     #text_results.append(textres)
     print("Task complete!")
     return textres
